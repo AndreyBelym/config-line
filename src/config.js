@@ -1,5 +1,5 @@
 const CONFIG_ENTRY_RE      = /^([^=]+)(?:=(.*))?$/;
-const RECURSIVE_CONFIG_RE  = /={((?:[^{}]|\\{|\\})+)};/g;
+const RECURSIVE_CONFIG_RE  = /={((?:[^{}]|\\{|\\})+)}(?:;|$)/g;
 const ESCAPED_LEFT_CURLY   = /\\{/g;
 const ESCAPED_RIGHT_CURLY  = /\\}/g;
 const EXTRACT_RE           = /^%(\d+?)%$/;
@@ -30,7 +30,9 @@ export default class Config {
             refined = refined.replace(RECURSIVE_CONFIG_RE, (match, inner) => {
                 var i = extracted.length;
 
-                extracted.push(inner).replace(ESCAPED_LEFT_CURLY, '{').replace(ESCAPED_RIGHT_CURLY, '}');
+                inner = inner.replace(ESCAPED_LEFT_CURLY, '{').replace(ESCAPED_RIGHT_CURLY, '}');
+
+                extracted.push(inner);
                 return `=%${i}%;`;
             });
         }
@@ -84,7 +86,7 @@ export default class Config {
                     var extractMatch = entryMatch[2].match(EXTRACT_RE);
 
                     if (extractMatch)
-                        this._parse(extracted[extractMatch[1]], entryName + '.');
+                        this._parse({ refined: extracted[extractMatch[1]], extracted }, entryName + '.');
                     else
                         this.set(entryName, entryMatch[2]);
                 }
