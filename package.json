@@ -1,0 +1,29 @@
+{
+  "name": "config-line",
+  "version": "0.1.0",
+  "description": "Simple but nice configuration parser",
+  "main": "lib/index.js",
+  "files": [
+    "lib"
+  ],
+  "scripts": {
+    "test": "eslint src",
+    "build": "babel src --out-dir lib"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AndreyBelym/config-line.git"
+  },
+  "author": "Andrey Belym",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/AndreyBelym/config-line/issues"
+  },
+  "homepage": "https://github.com/AndreyBelym/config-line#readme",
+  "devDependencies": {
+    "babel-cli": "^6.24.1",
+    "babel-preset-env": "^1.4.0",
+    "eslint": "^3.19.0",
+    "eslint-plugin-import": "^2.2.0"
+  }
+}
