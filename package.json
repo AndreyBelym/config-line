@@ -1,6 +1,6 @@
 {
   "name": "config-line",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Simple but nice configuration parser",
   "main": "lib/index.js",
   "files": [

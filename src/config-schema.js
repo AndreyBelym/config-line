@@ -23,6 +23,8 @@ export default class ConfigSchema {
                 if (type === 'object') {
                     this._buildSchema(configSpec[key], entryName + '.');
 
+                    this[entryName] = { type: 'object', defaultKey: configSpec[`_${key}DefaultKey`] };
+
                     return;
                 }
 

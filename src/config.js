@@ -1,11 +1,7 @@
-const CONFIG_ENTRY_RE      = /^([^=]+)(?:=(.*))?$/;
-const RECURSIVE_CONFIG_RE  = /={((?:[^{}]|\\{|\\})+)}(?:;|$)/g;
-const ESCAPED_LEFT_CURLY   = /\\{/g;
-const ESCAPED_RIGHT_CURLY  = /\\}/g;
-const EXTRACT_RE           = /^%(\d+?)%$/;
-const ESCAPING_RE          = /\\+$/;
+import Tokenizer from './tokenizer';
 
-const schema = Symbol();
+
+const schema    = Symbol();
 
 export default class Config {
     constructor (configSchema, configString) {
@@ -13,82 +9,27 @@ export default class Config {
 
         this._createKeys();
 
-        var nonRecursiveConfig = Config._extractRecursiveConfig(configString);
+        var tokenizer = new Tokenizer(configString);
 
-        this._parse(nonRecursiveConfig, '');
+        this.unparsed  = tokenizer.unparsed;
+
+        this._parse(tokenizer.tokens, '');
     }
 
     _createKeys () {
         Object.keys(this[schema]).forEach(key => this._init(key));
     }
 
-    static _extractRecursiveConfig (configString) {
-        var extracted = [];
-        var refined   = configString;
-
-        while (RECURSIVE_CONFIG_RE.test(refined)) {
-            refined = refined.replace(RECURSIVE_CONFIG_RE, (match, inner) => {
-                var i = extracted.length;
-
-                inner = inner.replace(ESCAPED_LEFT_CURLY, '{').replace(ESCAPED_RIGHT_CURLY, '}');
-
-                extracted.push(inner);
-                return `=%${i}%;`;
-            });
-        }
-
-        return { refined, extracted };
-    }
-
-    static _splitEntries (str) {
-        var splitted = str.split(';');
-        var result   = [splitted[0]];
-
-        for (var i = 1; i < splitted.length; i++) {
-            var last          = result[result.length - 1];
-            var escapingMatch = last.match(ESCAPING_RE);
-
-            if (!escapingMatch) {
-                result.push(splitted[i]);
-                continue;
-            }
-
-            var replacementLength   = escapingMatch[0].length / 2 | 0;
-            var escapingReplacement = Array(replacementLength + 1).join('\\');
-
-            last = last.replace(/\\+$/, escapingReplacement);
-
-            if (escapingMatch[0].length % 2)
-                result[result.length - 1] = last + ';' + splitted[i];
-            else {
-                result[result.length - 1] = last;
-
-                result.push(splitted[i]);
-            }
-        }
-
-        return result;
-    }
-
-    _parse ({ refined, extracted }, prefix) {
-        Config
-            ._splitEntries(refined)
-            .filter(entry => !!entry)
+    _parse (tokens, prefix) {
+        tokens
             .forEach(entry => {
-                var entryMatch = entry.match(CONFIG_ENTRY_RE);
+                var entryName = prefix + entry.match[0].match[0].replace(/-(.)/g, match => match[1].toUpperCase());
 
-                if (!entryMatch || !entryMatch[1])
-                    throw new Error();
-
-                var entryName = prefix + entryMatch[1].replace(/-(.)/g, match => match[1].toUpperCase());
-
-                if (entryMatch[2]) {
-                    var extractMatch = entryMatch[2].match(EXTRACT_RE);
-
-                    if (extractMatch)
-                        this._parse({ refined: extracted[extractMatch[1]], extracted }, entryName + '.');
+                if (entry.match[2]) {
+                    if (entry.match[2].type === 'recursion')
+                        this._parse(entry.match[2].match, entryName + '.');
                     else
-                        this.set(entryName, entryMatch[2]);
+                        this.set(entryName, entry.match[2].match[0]);
                 }
                 else
                     this.set(entryName, true);
@@ -99,7 +40,7 @@ export default class Config {
         return key
             .split('.')
             .reduce((cfg, curKey, i, array) => {
-                if (i === array.length - 1)
+                if (i === array.length - 1 && this[schema][key].type !== 'object')
                     cfg[curKey] = this[schema][key].defaultValue;
                 else if (!cfg[curKey])
                     cfg[curKey] = {};
@@ -109,10 +50,23 @@ export default class Config {
     }
 
     get (key) {
+        if (!this[schema][key])
+            return void 0;
+
         return key.split('.').reduce((cfg, curKey) => cfg[curKey], this);
     }
 
     set (key, value) {
+        if (!this[schema][key])
+            return void 0;
+
+        if (this[schema][key].type === 'object') {
+            if (!this[schema][key].defaultKey)
+                return void 0;
+
+            key = key + '.' + this[schema][key].defaultKey;
+        }
+
         return key
             .split('.')
             .reduce((cfg, curKey, i, array) => {
@@ -124,10 +78,16 @@ export default class Config {
     }
 
     isDefault (key) {
+        if (!this[schema][key])
+            return false;
+
         return this.get(key) === this[schema][key].defaultValue;
     }
 
     override (key, value) {
+        if (!this[schema][key])
+            return;
+
         if (this.isDefault(key))
             this.set(key, value);
     }
